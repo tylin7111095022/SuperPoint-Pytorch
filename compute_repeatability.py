@@ -43,7 +43,6 @@ def get_true_keypoints(exper_name, prob_thresh=0.5):
 
     return true_keypoints
 
-
 def draw_keypoints(img, corners, color=(0, 255, 0), radius=3, s=3):
     img = np.repeat(cv2.resize(img, None, fx=s, fy=s)[..., np.newaxis], 3, -1)
     for c in np.stack(corners).T:
@@ -57,29 +56,33 @@ def select_top_k(prob, thresh=0, num=300):
 
 if __name__=='__main__':
 
-    experiments = ['./data/repeatibility/hpatches/sp']
+    experiments = ['./data/repeatibility/angiogram/sp']
     confidence_thresholds = [0.015, ]
+    numPointsKeep = 1000
 
     ## show keypoints
-    for i in range(4):
-        for e, thresh in zip(experiments, confidence_thresholds):
-            path = os.path.join(e, str(i) + ".npz")
-            d = np.load(path)
-            img = np.round(d['img']*255).astype(np.int).astype(np.uint8)
-            warp_img = np.round(d['warp_img']*255).astype(np.int).astype(np.uint8)
+    # for i in range(4):
+    for e, thresh in zip(experiments, confidence_thresholds):
+        files = os.listdir(e)
+        for fname in files:
+            path = os.path.join(e, fname)
+            d = np.load(path, allow_pickle=True)
+        
+            img = np.round(d['img']*255).astype(np.int64).astype(np.uint8)
+            warp_img = np.round(d['warp_img']*255).astype(np.int64).astype(np.uint8)
 
-            points1 = select_top_k(d['prob'], thresh=thresh)
+            points1 = select_top_k(d['prob'], thresh=thresh, num=numPointsKeep)
             im1 = draw_keypoints(img, points1, (0, 255, 0))/255.
 
-            points2 = select_top_k(d['warp_prob'], thresh=thresh)
+            points2 = select_top_k(d['warp_prob'], thresh=thresh, num=numPointsKeep)
             im2 = draw_keypoints(warp_img, points2, (0, 255, 0))/255.
 
             plot_imgs([im1, im2], ylabel=e, dpi=200, cmap='gray',
-                      titles=[str(len(points1[0])) + ' points', str(len(points2[0])) + ' points'])
+                        titles=[str(len(points1[0])) + ' points', str(len(points2[0])) + ' points'])
 
     ## compute repeatability
     for exp, thresh in zip(experiments, confidence_thresholds):
-        repeatability = ev.compute_repeatability(exp, keep_k_points=300, distance_thresh=3)
+        repeatability = ev.compute_repeatability(exp, keep_k_points=numPointsKeep, distance_thresh=3)
         print('> {}: {}'.format(exp, repeatability))
 
     # true_keypoints = get_true_keypoints('superpoint_hpatches_repeatability', 0.015)

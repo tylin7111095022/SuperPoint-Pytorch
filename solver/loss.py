@@ -33,8 +33,9 @@ def loss_func(config, data, prob, desc=None, prob_warp=None, desc_warp=None, dev
 
     loss = det_loss + det_loss_warp + weighted_des_loss
 
-    a, b, c = det_loss.item(), det_loss_warp.item(), weighted_des_loss.item()
-    print('debug: {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(a, b,c,a+b+c))
+    # for Debug
+    # a, b, c = det_loss.item(), det_loss_warp.item(), weighted_des_loss.item()
+    # print('debug: {:.3f}, {:.3f}, {:.3f}, {:.3f}'.format(a, b,c,a+b+c))
     return loss
 
 def detector_loss(keypoint_map, logits, valid_mask=None, grid_size=8, device='cpu'):
@@ -155,7 +156,7 @@ def descriptor_loss(config, descriptors, warped_descriptors, homographies, valid
     positive_sum = torch.sum(valid_mask*lambda_d*s*positive_dist) / normalization
     negative_sum = torch.sum(valid_mask*(1-s)*negative_dist) / normalization
 
-    print('positive_dist:{:.7f}, negative_dist:{:.7f}'.format(positive_sum, negative_sum))
+    # print('positive_dist:{:.7f}, negative_dist:{:.7f}'.format(positive_sum, negative_sum))
 
     loss = lambda_loss*torch.sum(valid_mask * loss)/normalization
 

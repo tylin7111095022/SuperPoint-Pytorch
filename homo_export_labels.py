@@ -6,12 +6,13 @@ from math import pi
 import kornia
 import cv2
 import numpy as np
+from utils.options import parseArgs
 from utils.params import dict_update
 from solver.nms import box_nms
 from utils.tensor_op import erosion2d
 from dataset.utils.homographic_augmentation import sample_homography,ratio_preserving_resize
-from model.magic_point import MagicPoint
-
+from model import getModel
+import matplotlib.pyplot as plt
 
 homography_adaptation_default_config = {
         'num': 50,
@@ -69,7 +70,7 @@ def one_adaptation(net, raw_image, probs, counts, images, config, device='cpu'):
 
     # Ignore the detections too close to the border to avoid artifacts
     if config['valid_border_margin']:
-        ##TODO: validation & debug
+        ## TODO: validation & debug
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (config['valid_border_margin'] * 2,) * 2)
         kernel = torch.as_tensor(kernel[np.newaxis,:,:], device=device)#BHW
         kernel = torch.flip(kernel, dims=[1,2])
@@ -84,9 +85,9 @@ def one_adaptation(net, raw_image, probs, counts, images, config, device='cpu'):
     prob = net(warped)
     prob = prob['prob']
     prob = prob * mask
-    prob_proj = kornia.warp_perspective(prob.unsqueeze(dim=1), M_inv, dsize=(H,W), align_corners=True)
-    prob_proj = prob_proj.squeeze(dim=1)#B,H,W
-    prob_proj = prob_proj * count#project back
+    prob_proj = kornia.warp_perspective(prob.unsqueeze(dim=1), M_inv, dsize=(H,W), align_corners=True) # Equation 9 of paper
+    prob_proj = prob_proj.squeeze(dim=1) # B,H,W
+    prob_proj = prob_proj * count # project back
     ##
 
     probs = torch.cat([probs, prob_proj.unsqueeze(dim=1)], dim=1)#the probabilities of each pixels on raw image
@@ -112,9 +113,9 @@ def homography_adaptation(net, raw_image, config, device='cpu'):
     #TODO: attention dim expand
     probs = probs.unsqueeze(dim=1)
     counts = counts.unsqueeze(dim=1)
-    images = raw_image.unsqueeze(dim=-1)#maybe no need
+    images = raw_image.unsqueeze(dim=-1) # maybe no need
     #
-    H,W = raw_image.shape[2:4]#H,W
+    H,W = raw_image.shape[2:4] # H,W
     config = dict_update(homography_adaptation_default_config, config)
 
     for _ in range(config['num']-1):
@@ -139,9 +140,10 @@ def homography_adaptation(net, raw_image, config, device='cpu'):
 
 
 if __name__=='__main__':
-    import matplotlib.pyplot as plt
+    
+    args = parseArgs()
 
-    with open('./config/homo_export_labels.yaml', 'r', encoding='utf8') as fin:
+    with open(args.config, 'r', encoding='utf8') as fin:
         config = yaml.safe_load(fin)
 
     if not os.path.exists(config['data']['dst_label_path']):
@@ -149,19 +151,13 @@ if __name__=='__main__':
     if not os.path.exists(config['data']['dst_image_path']):
         os.makedirs(config['data']['dst_image_path'])
 
-
     image_list = os.listdir(config['data']['src_image_path'])
     image_list = [os.path.join(config['data']['src_image_path'], fname) for fname in image_list]
 
-    # image_list = []
-    # with open('./coco_train_list.txt', 'r') as fin:
-    #     for line in fin:
-    #         image_list.append(line.strip())
-    # image_list = image_list[0:int(len(image_list)*0.5)]
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
-    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
-
-    net = MagicPoint(config['model'], input_channel=1, grid_size=8,device=device)
+    ##Make model
+    net = getModel(config, device=device)
     net.load_state_dict(torch.load(config['model']['pretrained_model']))
     net.to(device).eval()
 
@@ -198,8 +194,8 @@ if __name__=='__main__':
         ##save points
         for fname, pt in zip(batch_fnames, points):
             cv2.imwrite(os.path.join(config['data']['dst_image_path'], fname), img)
-            np.save(os.path.join(config['data']['dst_label_path'], fname+'.npy'), pt)
-            print('{}, {}'.format(os.path.join(config['data']['dst_label_path'], fname+'.npy'), len(pt)))
+            np.save(os.path.join(config['data']['dst_label_path'], fname.split('.')[0]+'.npy'), pt)
+            print('{}, {}'.format(os.path.join(config['data']['dst_label_path'], fname.split('.')[0]+'.npy'), len(pt)))
 
         # ## debug
         # for img, pts in zip(batch_raw_imgs,points):

@@ -8,14 +8,14 @@ import kornia
 from utils.params import dict_update
 from utils.tensor_op import erosion2d
 from utils.keypoint_op import *
-from imgaug import augmenters as iaa
+# from imgaug import augmenters as iaa
 
 
 
 def homographic_aug_pipline(img, pts, config, device='cpu'):
     """
     :param img: [1,1,H,W]
-    :param pts:[N,2]
+    :param pts:[N,2] or None
     :param config:parameters
     :param device: cpu or cuda
     :return:
@@ -27,16 +27,18 @@ def homographic_aug_pipline(img, pts, config, device='cpu'):
     ##
     #warped_image = cv2.warpPerspective(img, homography, tuple(image_shape[::-1]))
     warped_image = kornia.warp_perspective(img, homography, image_shape, align_corners=True)
-
     warped_valid_mask = compute_valid_mask(image_shape, homography, config['valid_border_margin'], device=device)
 
-    warped_points = warp_points(pts, homography, device=device)
-    warped_points = filter_points(warped_points, image_shape, device=device)
-    warped_points_map = compute_keypoint_map(warped_points, img.shape[2:], device=device)
+    warped_points = None
+    warped_points_map = None
+    if pts is not None:
+        warped_points = warp_points(pts, homography, device=device)
+        warped_points = filter_points(warped_points, image_shape, device=device)
+        warped_points_map = compute_keypoint_map(warped_points, img.shape[2:], device=device).squeeze()
 
     return {'warp':{'img': warped_image.squeeze(),
                     'kpts': warped_points,
-                    'kpts_map': warped_points_map.squeeze(),#some point maybe filtered
+                    'kpts_map': warped_points_map,#some point maybe filtered
                     'mask':warped_valid_mask.squeeze()},
             'homography':homography.squeeze(),
             }
@@ -109,8 +111,8 @@ def sample_homography(shape, config=None, device='cpu'):
             perspective_amplitude_x = config['perspective_amplitude_x']
             perspective_amplitude_y = config['perspective_amplitude_y']
         
-        tnorm_y = stats.truncnorm(-2, 2, loc=0, scale=perspective_amplitude_y/2)
-        tnorm_x = stats.truncnorm(-2, 2, loc=0, scale=perspective_amplitude_x/2)
+        tnorm_y = truncnorm(-2, 2, loc=0, scale=perspective_amplitude_y/2)
+        tnorm_x = truncnorm(-2, 2, loc=0, scale=perspective_amplitude_x/2)
         perspective_displacement = tnorm_y.rvs(1)
         h_displacement_left = tnorm_x.rvs(1)
         h_displacement_right = tnorm_x.rvs(1)
@@ -122,10 +124,10 @@ def sample_homography(shape, config=None, device='cpu'):
     # Random scaling
     # sample several scales, check collision with borders, randomly pick a valid one
     if config['scaling']:
-        mu, sigma = 1, _config['scaling_amplitude']/2
+        mu, sigma = 1, config['scaling_amplitude']/2
         lower, upper = mu - 2 * sigma, mu + 2 * sigma
-        tnorm_s = stats.truncnorm((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
-        scales = tnorm_s.rvs(_config['n_scales'])
+        tnorm_s = truncnorm((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
+        scales = tnorm_s.rvs(config['n_scales'])
         #scales = np.random.uniform(0.8, 2, config['n_scales'])
         scales = np.concatenate((np.array([1]), scales), axis=0)
 
@@ -197,17 +199,30 @@ def ratio_preserving_resize(img, target_size):
     :param target_size: (h,w)
     :return:
     '''
+
     scales = np.array((target_size[0]/img.shape[0], target_size[1]/img.shape[1]))##h_s,w_s
 
-    new_size = np.round(np.array(img.shape)*np.max(scales)).astype(np.int)#
-    temp_img = cv2.resize(img, tuple(new_size[::-1]))
+    new_size = np.round(np.array(img.shape)*np.max(scales)).astype(np.int64)
+    temp_img = cv2.resize(img, tuple(new_size[::-1])) # cv2.resize method get the order of parameter is w, h !
     curr_h, curr_w = temp_img.shape
     target_h, target_w = target_size
     ##
     hp = (target_h-curr_h)//2
     wp = (target_w-curr_w)//2
-    aug = iaa.Sequential([iaa.CropAndPad(px=(hp, wp, target_h-curr_h-hp, target_w-curr_w-wp),keep_size=False),])
-    new_img = aug(images=temp_img)
+    # implementation of CropAndPad function
+    if (hp >=0 and wp >= 0):
+        new_img = cv2.copyMakeBorder(temp_img, hp, target_h-curr_h-hp, wp, target_w-curr_w-wp, cv2.BORDER_CONSTANT, None, value = 0)
+    elif (hp >=0 and wp < 0):
+        new_img = cv2.copyMakeBorder(temp_img, hp, target_h-curr_h-hp, 0 ,0, cv2.BORDER_CONSTANT, None, value = 0)
+        new_img = new_img[:, -wp:(target_w-curr_w-wp)] # wp must be negative
+    elif (hp < 0 and wp >= 0):
+        new_img = cv2.copyMakeBorder(temp_img, 0, 0, wp ,target_w-curr_w-wp, cv2.BORDER_CONSTANT, None, value = 0)
+        new_img = new_img[-hp:(target_h-curr_h-hp), :] # hp must be negative
+    else:
+        new_img = new_img[-hp:(target_h-curr_h-hp), -wp:(target_w-curr_w-wp)]
+
+    # aug = iaa.Sequential([iaa.CropAndPad(px=(hp, wp, target_h-curr_h-hp, target_w-curr_w-wp),keep_size=False),])
+    # new_img = aug(images=temp_img)
     return new_img
 
 

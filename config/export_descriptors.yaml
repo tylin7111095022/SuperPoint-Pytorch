@@ -1,14 +1,14 @@
 data:
-    name: 'hpatches'
-    data_dir: './data/hpatches'
-    export_dir: './data/descriptors/hpatches/sp/'
-    alteration: 'v'  # 'all' 'i' 'v'
+    name: 'angiogram'
+    data_dir: './data/angiogram/images' #./data/hpatches
+    export_dir: './data/descriptors/angiogram/sp'
+    # alteration: 'v'  # 'all' 'i' 'v' dummy param
     preprocessing:
-        resize: [480, 640]  # False for coco
+        resize: [512, 512]  # False for coco
     homography_adaptation:
-        num: 0
-        aggregation: 'sum'
-        filter_counts: 10
+        # num: 0 # dummy param
+        # aggregation: 'sum' # dummy param
+        # filter_counts: 10 # dummy param
         homographies:
             translation: true
             rotation: true
@@ -24,7 +24,7 @@ model:
     name: 'superpoint'
     using_bn: true
     grid_size: 8
-    pretrained_model: './export/sp_0.pth'
+    pretrained_model: './export/sp_7.pth'
     nms: 8
     det_thresh: 0.001 #0.001
     topk: 1000

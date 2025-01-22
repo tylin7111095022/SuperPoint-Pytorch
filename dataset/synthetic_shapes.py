@@ -97,8 +97,8 @@ class SyntheticShapes(Dataset):
 
                 b = self.config['preprocessing']['blur_size']
                 image = cv2.GaussianBlur(image, (b, b), 0)
-                points = (points * np.array(self.config['preprocessing']['resize'], np.float)
-                          / np.array(self.config['generation']['image_size'], np.float))
+                points = (points * np.array(self.config['preprocessing']['resize'], np.float64)
+                          / np.array(self.config['generation']['image_size'], np.float64))
                 image = cv2.resize(image, tuple(self.config['preprocessing']['resize'][::-1]),
                                    interpolation=cv2.INTER_LINEAR)
 
@@ -220,16 +220,16 @@ if __name__=="__main__":
     for i, d in enumerate(data_loaders['train']):
         if i >= 10:
             break
-        img = (d['raw']['img'][0] * 255).cpu().numpy().squeeze().astype(np.int).astype(np.uint8)
+        img = (d['raw']['img'][0] * 255).cpu().numpy().squeeze().astype(np.int32).astype(np.uint8)
         img = cv2.merge([img, img, img])
         ##
         kpts = np.where(d['raw']['kpts_map'][0].squeeze().cpu().numpy())
         kpts = np.vstack(kpts).T
-        kpts = np.round(kpts).astype(np.int)
+        kpts = np.round(kpts).astype(np.int32)
         for kp in kpts:
             cv2.circle(img, (kp[1], kp[0]), radius=3, color=(0, 255, 0))
 
-        mask = d['raw']['mask'][0].cpu().numpy().squeeze().astype(np.int).astype(np.uint8)*255
+        mask = d['raw']['mask'][0].cpu().numpy().squeeze().astype(np.int32).astype(np.uint8)*255
 
         img = cv2.resize(img, (img.shape[1] * 2, img.shape[0] * 2))
 

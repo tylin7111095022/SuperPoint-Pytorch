@@ -1,0 +1,6 @@
+data
+export
+env
+.python-version
+*.pth
+*\__pycache__

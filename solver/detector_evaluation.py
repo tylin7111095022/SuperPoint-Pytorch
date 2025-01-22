@@ -2,13 +2,11 @@ import numpy as np
 from os import path as osp
 from glob import glob
 
-
 def get_paths(exper_name):
     """
     Return a list of paths to the outputs of the experiment.
     """
     return glob(osp.join(exper_name,'*.npz'))
-
 
 def compute_tp_fp(data, remove_zero=1e-4, distance_thresh=2, simplified=False):
     """

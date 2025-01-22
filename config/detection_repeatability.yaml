@@ -1,14 +1,14 @@
 data:
-    name: 'hpatches' #hpatches
-    data_dir: './data/hpatches' #./data/hpatches
-    export_dir: './data/repeatibility/hpatches/sp'
-    alteration: 'all'  # 'all' 'i' 'v'
+    name: 'angiogram' #hpatches
+    data_dir: './data/angiogram/images' #./data/hpatches
+    export_dir: './data/repeatibility/angiogram/sp'
+    # alteration: 'all'  # dummy param
     preprocessing:
-        resize: [240,320]
+        resize: [512,512]
     homography_adaptation:
-        num: 0
-        aggregation: 'sum'
-        filter_counts: 0
+        # num: 0 # dummy param
+        # aggregation: 'sum' # dummy param
+        # filter_counts: 0 # dummy param
         homographies:
             translation: true
             rotation: true
@@ -22,7 +22,7 @@ data:
 model:
     name: 'superpoint' #superpoint
     using_bn: true
-    pretrained_model: './export/sp_0.pth'
+    pretrained_model: './export/sp_7.pth'
     grid_size: 8
     backbone:
         backbone_type: 'VGG'
@@ -36,7 +36,7 @@ model:
     learning_rate: 0.001
     nms: 4
     topk: 1000
-    det_thresh: 0.001 # 0.001
+    det_thresh: 0.015 # 0.001
     #batch_size: 50
     #eval_batch_size: 50
 
